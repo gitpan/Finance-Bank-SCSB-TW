@@ -2,7 +2,7 @@
 package Finance::Bank::SCSB::TW;
 use strict;
 use Carp;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use WWW::Mechanize;
 our $ua = WWW::Mechanize->new(
     env_proxy => 1,
