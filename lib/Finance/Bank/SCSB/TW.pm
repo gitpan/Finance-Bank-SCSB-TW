@@ -4,8 +4,8 @@ package Finance::Bank::SCSB::TW;
 
 use Carp;
 use 5.008;
-our $VERSION = '0.10';
-use WWW::Mechanize;
+our $VERSION = '0.11';
+use WWW::Mechanize::Sleepy;
 use HTML::Selector::XPath qw(selector_to_xpath);
 use HTML::TreeBuilder::XPath;
 use utf8;
@@ -15,16 +15,77 @@ use List::MoreUtils qw(mesh);
     my $ua;
     sub ua {
         return $ua if $ua;
-        $ua = WWW::Mechanize->new(
+        $ua = WWW::Mechanize::Sleepy->new(
+            sleep => '1..5',
             env_proxy => 1,
             keep_alive => 1,
             timeout => 60,
         );
+        $ua->agent_alias("Windows IE 6");
+        return $ua;
     }
 }
 
+sub _login {
+    my ($id, $username, $password, $menu) = @_;
+    $menu ||= "menu1";
+
+    ua->get('https://ibank.scsb.com.tw/');
+    ua->get('https://ibank.scsb.com.tw/mainbody.jsp');
+
+    ua->submit_form(
+        form_name => 'loginForm',
+        fields => {
+            userID => $id,
+            loginUID => $username
+        }
+    );
+
+    ua->submit_form(
+        form_name => 'loginForm',
+        fields => {
+            password => $password,
+            'wlw-radio_button_group_key:{actionForm.loginAP}' => $menu
+        }
+    );
+
+    return ua->content;
+}
+
+sub logout {
+    ua->get("https://ibank.scsb.com.tw/logout.do");
+}
+
+sub css {
+    selector_to_xpath(shift)
+}
+
+sub _cssQuery {
+    my ($content, $selector) = @_;
+    my $tree = HTML::TreeBuilder::XPath->new;
+    $tree->parse($content);
+    $tree->findnodes( selector_to_xpath($selector) );
+}
+
 sub check_balance {
-    die "Not implemented";
+    my ($id, $username, $password) = @_;
+
+    die "Invalid parameters." unless $id && $username && $password;
+
+    my $content = _login($id, $username, $password, "menu3");
+
+    my $nodes = _cssQuery($content, ".txt07 div[align='center'], .txt10 div[align='center'] span");
+
+    my %balance = ( map { $_->as_trimmed_text } @$nodes );
+
+    for (keys %balance) {
+        $balance{$_} =~ s/,//;
+    }
+
+    logout;
+
+    return $balance{"存款"} if defined($balance{"存款"});
+    return -1;
 }
 
 sub currency_exchange_rate {
@@ -50,7 +111,6 @@ sub currency_exchange_rate {
         my @row = ();
         for my $node_text (@xp) {
             my $str = $node_text->[$row];
-            utf8::decode($str);
             push @row, $str;
         }
         $row[0] =~ s/\p{IsSpace}+//g;
@@ -102,9 +162,10 @@ like this:
         sell_at          => 33.56
     }
 
-=item check_balance(username => $u, password => $p, account=>$a )
+=item check_balance($id, $username, $password)
 
-This function isn't re-implemented yet. Please do not use this function.
+Retrieve your NTD balance. id is the 10-digit Taiwan ID. username and
+password is whatever you defined at the bank.
 
 =back
 
