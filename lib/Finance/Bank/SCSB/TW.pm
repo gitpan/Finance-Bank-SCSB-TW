@@ -4,19 +4,19 @@ package Finance::Bank::SCSB::TW;
 
 use Carp;
 use 5.008;
-our $VERSION = '0.11';
-use WWW::Mechanize::Sleepy;
+our $VERSION = '0.12';
+use WWW::Mechanize;
 use HTML::Selector::XPath qw(selector_to_xpath);
 use HTML::TreeBuilder::XPath;
 use utf8;
 use List::MoreUtils qw(mesh);
+use Finance::Bank::SCSB::TW::CurrencyExchangeRateCollection;
 
 {
     my $ua;
     sub ua {
         return $ua if $ua;
-        $ua = WWW::Mechanize::Sleepy->new(
-            sleep => '1..5',
+        $ua = WWW::Mechanize->new(
             env_proxy => 1,
             keep_alive => 1,
             timeout => 60,
@@ -118,7 +118,7 @@ sub currency_exchange_rate {
         push @$table, { mesh @field_names, @row };
     }
 
-    return $table;
+    return bless $table, "Finance::Bank::SCSB::TW::CurrencyExchangeRateCollection";
 }
 
 1;
@@ -139,7 +139,7 @@ Finance::Bank::SCSB::TW - Check Taiawn SCSB bank info
 
 =head1 DESCRIPTION
 
-This module provides a rudimentary interface to the Fubon eBank
+This module provides a rudimentary interface to the online SCSB
 banking system at L<http://www.scsb.com.tw/>.
 
 You will need either B<Crypt::SSLeay> or B<IO::Socket::SSL> installed
@@ -162,6 +162,10 @@ like this:
         sell_at          => 33.56
     }
 
+The returned reference is also an object of
+L<Finance::Bank::SCSB::TW::CurrencyExchangeRateCollection>, see the
+documents there for the reference of instance methods.
+
 =item check_balance($id, $username, $password)
 
 Retrieve your NTD balance. id is the 10-digit Taiwan ID. username and
@@ -177,16 +181,13 @@ the source of this module yourself to reassure yourself that I am not
 doing anything untoward with your banking data. This software is useful
 to me, but is provided under B<NO GUARANTEE>, explicit or implied.
 
-=head1 AUTHORS
+=head1 AUTHOR
 
 Kang-min Liu E<lt>gugod@gugod.orgE<gt>
 
-Based on B<Finance::Bank::LloydTSB> by Simon Cozens C<simon@cpan.org>,
-and B<Finance::Bank::Fubon::TW> by Autrijus Tang C<autrijus@autrijus.org>
-
 =head1 COPYRIGHT
 
-Copyright 2003,2004,2005,2006,2007,2008 by Kang-min Liu E<lt>gugod@gugod.orgE<gt>.
+Copyright 2003,2004,2005,2006,2007,2008,2009 by Kang-min Liu E<lt>gugod@gugod.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
@@ -194,4 +195,3 @@ under the same terms as Perl itself.
 See L<http://www.perl.com/perl/misc/Artistic.html>
 
 =cut
-
